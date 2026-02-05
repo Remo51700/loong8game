@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>第三关：决战天际 (最终修复版)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基础设置 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #000; 
+        }
+
+        /* --- 滚动背景层 --- */
+        .bg-layer {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: 100% 100%; 
+            background-repeat: no-repeat;
+            z-index: 0;
+        }
+        #bg-1 { background-image: url('stage3_image/sky_1.png'); }
+        #bg-2 { background-image: url('stage3_image/sky_2.png'); }
+
+        /* --- UI 层 --- */
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+        .heart { font-size: 24px; color: #e74c3c; }
+        .heart.lost { opacity: 0.3; filter: grayscale(100%); }
+        #score-box { font-size: 18px; }
+
+        /* --- 游戏元素通用 --- */
+        .sprite {
+            position: absolute;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: contain; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- 玩家飞机 --- */
+        #player-plane {
+            width: 100px;
+            height: 100px;
+            z-index: 50;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: opacity 0.2s;
+            background-image: url('stage3_image/mo_ufo.png');
+            background-size: 100% auto; 
+        }
+        
+        #player-plane.invincible {
+            opacity: 0.5;
+            animation: blinkPlayer 0.2s infinite alternate;
+        }
+        @keyframes blinkPlayer { from { opacity: 0.3; } to { opacity: 0.7; } }
+
+        /* --- 子弹 --- */
+        .bullet-heart {
+            font-size: 30px;
+            z-index: 40;
+            position: absolute;
+            filter: drop-shadow(0 0 5px red);
+        }
+        
+        .bullet-poop {
+            font-size: 35px;
+            z-index: 40;
+            position: absolute;
+        }
+
+        /* --- 敌人 --- */
+        .enemy {
+            width: 85px;
+            height: 85px;
+            z-index: 45;
+            image-rendering: pixelated; 
+        }
+
+        /* --- Boss --- */
+        .boss {
+            width: 200px; 
+            height: 200px;
+            z-index: 48;
+            top: 80px; 
+            /* left 完全由 JS 控制 */
+            transition: left 0.2s linear, opacity 0.5s; 
+            background-image: url('stage3_image/long_boss.png');
+        }
+        
+        .boss.warning {
+            animation: bossBlinkRed 0.2s infinite alternate;
+        }
+        @keyframes bossBlinkRed {
+            from { filter: drop-shadow(0 0 0 red); }
+            to { filter: drop-shadow(0 0 30px red) sepia(1) saturate(5) hue-rotate(-50deg); }
+        }
+        
+        .boss.dashing {
+            filter: drop-shadow(0 0 20px red) sepia(1) saturate(5) hue-rotate(-50deg);
+            transition: none !important; 
+        }
+        
+        .boss.dying {
+            transform-origin: center;
+            animation: bossDieAnim 2s ease-in forwards;
+        }
+        @keyframes bossDieAnim {
+            0% { transform: rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translateX(300px) translateY(-500px) rotate(1080deg) scale(0.5); opacity: 0; }
+        }
+
+        .boss-enter {
+            animation: bossDescend 2s ease-out forwards;
+        }
+        @keyframes bossDescend {
+            from { top: -250px; opacity: 0; }
+            to { top: 80px; opacity: 1; }
+        }
+
+        .hit-flash { filter: brightness(10) sepia(1) hue-rotate(-50deg) saturate(5); }
+
+        /* --- 警告文字 --- */
+        #warning-text {
+            position: absolute;
+            top: 40%;
+            width: 100%;
+            text-align: center;
+            font-size: 40px;
+            color: red;
+            font-weight: bold;
+            display: none;
+            z-index: 150;
+            text-shadow: 2px 2px 0 #000;
+            animation: blink 0.5s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* --- 结算与开始遮罩 --- */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+            text-align: center;
+        }
+        
+        #title-text {
+            font-size: 30px; 
+            color: #f1c40f; 
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-family: 'Press Start 2P', cursive;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-bottom: 4px solid #27ae60;
+            width: 220px;
+        }
+        
+        #continue-btn {
+            background: #3498db;
+            border-bottom: 4px solid #2980b9;
+        }
+        
+        .btn:active {
+            transform: translateY(4px);
+            border-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <audio id="bgm" loop src="stage3_music/bgm.mp3"></audio>
+
+    <div id="bg-1" class="bg-layer"></div>
+    <div id="bg-2" class="bg-layer"></div>
+
+    <div id="ui-layer">
+        <div id="lives">
+            <span class="heart" id="h1">❤️</span>
+            <span class="heart" id="h2">❤️</span>
+            <span class="heart" id="h3">❤️</span>
+        </div>
+        <div id="score-box">分数: <span id="score">0</span>/15</div>
+    </div>
+
+    <div id="warning-text">WARNING!<br>BOSS COMING</div>
+
+    <div id="player-plane" class="sprite"></div>
+
+    <div id="overlay">
+        <h1 id="title-text">第三关<br>决战天际</h1>
+        <p style="font-size:12px; color:#ccc;">拖动UFO移动<br>发射爱心击败敌人</p>
+        
+        <button id="continue-btn" class="btn" style="display:none;" onclick="continueFromBoss()">继续挑战 Boss</button>
+        <button id="restart-btn" class="btn" style="display:none;" onclick="location.reload()">重新开始</button>
+        <button id="final-btn" class="btn" style="display:none;" onclick="location.href='stage_end.html'">完美通关！</button>
+    </div>
+</div>
+
+<script>
+    /* --- 1. 参数配置 --- */
+    const CONFIG = {
+        targetScore: 15,
+        bulletSpeed: 15, 
+        enemySpeed: 2,   
+        poopSpeed: 4,    
+        fireRate: 450,   
+        enemySpawnRate: 1500, 
+        poopRate: 0.005,
+        bgSpeed: 1.5, 
+        
+        // Boss 配置
+        bossTriggerScore: 14, 
+        bossHp: 38,           
+        bossFireRate: 600,    
+        bossRingRate: 3000,
+        bossMoveSpeed: 2,     
+        bossDashSpeed: 12,    
+        dashThreshold: 10     
+    };
+
+    // 游戏状态
+    let gameRunning = false;
+    let score = 0;
+    let lives = 3;
+    let frameId = null;
+    let spawnTimer = null;
+    let shootTimer = null;
+    let isInvincible = false; 
+    
+    // Boss 状态
+    let bossActive = false;
+    let isTransitioning = false; 
+    let hasReachedBoss = false; 
+    let bossTimers = []; 
+    let bossDirection = 1; 
+    let bossDamageCounter = 0; 
+    let isBossDashing = false; 
+    let isBossWarning = false; 
+    let bossDashPhase = 0; 
+
+    // 背景状态变量
+    let bg1Top = 0;
+    let bg2Top = 0;
+
+    // 敌人素材池
+    let enemyPool = []; 
+    
+    function initEnemyPool() {
+        enemyPool = [];
+        for(let i = 1; i <= 27; i++) {
+            enemyPool.push(i);
+        }
+        shuffleArray(enemyPool);
+    }
+    
+    function getNextEnemyId() {
+        if (enemyPool.length === 0) {
+            initEnemyPool(); 
+        }
+        return enemyPool.pop();
+    }
+    
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    const container = document.getElementById('game-container');
+    const player = document.getElementById('player-plane');
+    const scoreEl = document.getElementById('score');
+    const bg1 = document.getElementById('bg-1');
+    const bg2 = document.getElementById('bg-2');
+
+    /* --- 初始化背景位置 --- */
+    function initBackground() {
+        bg1Top = 0;
+        bg2Top = -container.offsetHeight;
+        bg1.style.top = bg1Top + 'px';
+        bg2.style.top = bg2Top + 'px';
+    }
+
+    /* --- 2. 倒计时逻辑 --- */
+    function startCountdown() {
+        // 隐藏所有按钮
+        document.querySelectorAll('.btn').forEach(b => b.style.display = 'none');
+        
+        initEnemyPool();
+        initBackground();
+
+        const title = document.getElementById('title-text');
+        let count = 3;
+        title.innerText = count; 
+        
+        const timer = setInterval(() => {
+            count--;
+            if(count > 0) title.innerText = count;
+            else if(count === 0) title.innerText = "GO!";
+            else {
+                clearInterval(timer);
+                document.getElementById('overlay').style.display = 'none';
+                startGame();
+            }
+        }, 1000);
+    }
+
+    /* --- 3. 玩家控制 --- */
+    container.addEventListener('touchmove', handleMove, {passive: false});
+    container.addEventListener('mousemove', (e) => { if(e.buttons === 1) handleMove(e); });
+
+    function handleMove(e) {
+        if(!gameRunning) return;
+        e.preventDefault(); 
+        let clientX, clientY;
+        if(e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+
+        const rect = container.getBoundingClientRect();
+        let x = clientX - rect.left;
+        let y = clientY - rect.top;
+
+        x = Math.max(50, Math.min(x, rect.width - 50));
+        y = Math.max(50, Math.min(y, rect.height - 50));
+
+        player.style.left = x + 'px';
+        player.style.top = y + 'px';
+    }
+
+    /* --- 4. 游戏核心循环 --- */
+    function startGame() {
+        gameRunning = true;
+        gameLoop();
+        
+        if (bossActive) {
+            spawnBoss(); 
+        } else {
+            spawnTimer = setInterval(spawnEnemy, CONFIG.enemySpawnRate);
+        }
+        
+        shootTimer = setInterval(playerShoot, CONFIG.fireRate);
+    }
+
+    function gameLoop() {
+        if(!gameRunning) return;
+
+        updateBackground(); 
+        updateBullets();
+        updateEnemies();
+        updateBoss(); 
+        updatePoops();
+        checkCollisions();
+
+        frameId = requestAnimationFrame(gameLoop);
+    }
+
+    function updateBackground() {
+        bg1Top += CONFIG.bgSpeed;
+        bg2Top += CONFIG.bgSpeed;
+        
+        const h = container.offsetHeight;
+
+        if (bg1Top >= h) bg1Top = bg2Top - h;
+        if (bg2Top >= h) bg2Top = bg1Top - h;
+        
+        bg1.style.top = bg1Top + 'px';
+        bg2.style.top = bg2Top + 'px';
+    }
+
+    /* --- 5. 子弹系统 --- */
+    function playerShoot() {
+        if(!gameRunning) return;
+        const bullet = document.createElement('div');
+        bullet.className = 'bullet-heart';
+        bullet.innerText = '❤️';
+        const pRect = player.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        bullet.style.left = (pRect.left - cRect.left + pRect.width/2 - 15) + 'px';
+        bullet.style.top = (pRect.top - cRect.top - 20) + 'px';
+        container.appendChild(bullet);
+    }
+
+    function updateBullets() {
+        const bullets = document.querySelectorAll('.bullet-heart');
+        bullets.forEach(b => {
+            let top = parseFloat(b.style.top);
+            top -= CONFIG.bulletSpeed;
+            b.style.top = top + 'px';
+            if(top < -30) b.remove(); 
+        });
+    }
+
+    /* --- 6. 敌人系统 --- */
+    function spawnEnemy() {
+        if(!gameRunning || bossActive || isTransitioning) return;
+        const enemy = document.createElement('div');
+        enemy.className = 'enemy sprite'; 
+        
+        const enemyId = getNextEnemyId();
+        enemy.style.backgroundImage = `url('stage3_image/long${enemyId}.png')`;
+        
+        const maxLeft = container.offsetWidth - 85; 
+        enemy.style.left = Math.random() * maxLeft + 'px';
+        enemy.style.top = '-85px';
+        enemy.dataset.hp = 2;
+        enemy.dataset.hasShot = 'false';
+        container.appendChild(enemy);
+    }
+
+    function updateEnemies() {
+        const enemies = document.querySelectorAll('.enemy');
+        enemies.forEach(e => {
+            let top = parseFloat(e.style.top);
+            top += CONFIG.enemySpeed;
+            e.style.top = top + 'px';
+            if(e.dataset.hasShot === 'false' && Math.random() < CONFIG.poopRate && top > 0) {
+                spawnPoop(e, 0, CONFIG.poopSpeed);
+                e.dataset.hasShot = 'true';
+            }
+            if(top > container.offsetHeight) e.remove();
+        });
+    }
+    
+    function spawnPoop(sourceEl, vx, vy) {
+        const poop = document.createElement('div');
+        poop.className = 'bullet-poop';
+        poop.innerText = '💩';
+        const eRect = sourceEl.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        poop.style.left = (eRect.left - cRect.left + eRect.width/2 - 18) + 'px'; 
+        poop.style.top = (eRect.top - cRect.top + eRect.height/2) + 'px';
+        poop.dataset.vx = vx;
+        poop.dataset.vy = vy;
+        container.appendChild(poop);
+    }
+
+    function updatePoops() {
+        const poops = document.querySelectorAll('.bullet-poop');
+        poops.forEach(p => {
+            let top = parseFloat(p.style.top);
+            let left = parseFloat(p.style.left);
+            let vx = parseFloat(p.dataset.vx) || 0;
+            let vy = parseFloat(p.dataset.vy) || CONFIG.poopSpeed;
+            p.style.top = (top + vy) + 'px';
+            p.style.left = (left + vx) + 'px';
+            if(top > container.offsetHeight || top < -50 || left < -50 || left > container.offsetWidth + 50) {
+                p.remove();
+            }
+        });
+    }
+
+    /* --- 7. Boss 系统 --- */
+    function enterBossStage() {
+        isTransitioning = true;
+        hasReachedBoss = true; 
+        clearInterval(spawnTimer);
+        
+        const enemies = document.querySelectorAll('.enemy');
+        enemies.forEach(e => {
+            e.style.transition = "top 1s, opacity 1s";
+            e.style.top = (container.offsetHeight + 100) + 'px';
+            e.style.opacity = 0;
+            setTimeout(() => e.remove(), 1000);
+        });
+        
+        const warning = document.getElementById('warning-text');
+        warning.style.display = 'block';
+        
+        setTimeout(() => {
+            warning.style.display = 'none';
+            spawnBoss();
+            isTransitioning = false; 
+        }, 3000);
+    }
+
+    function spawnBoss() {
+        document.querySelectorAll('.boss').forEach(e => e.remove());
+        
+        bossActive = true;
+        const boss = document.createElement('div');
+        boss.className = 'boss boss-enter sprite'; 
+        boss.id = 'boss-unit';
+        boss.dataset.hp = CONFIG.bossHp;
+        
+        // 容器宽 450，Boss宽 200，所以 left = (450-200)/2 = 125
+        const initialLeft = (container.offsetWidth - 200) / 2;
+        boss.style.top = '80px';
+        boss.style.left = initialLeft + 'px'; 
+        
+        container.appendChild(boss);
+        
+        setTimeout(() => {
+            if(boss) boss.classList.remove('boss-enter');
+        }, 2000);
+        
+        let t1 = setInterval(() => {
+            if(!gameRunning || !bossActive || isBossDashing || isBossWarning) return; 
+            spawnPoop(boss, 0, CONFIG.poopSpeed * 1.5);
+        }, CONFIG.bossFireRate);
+        
+        let t2 = setInterval(() => {
+            if(!gameRunning || !bossActive || isBossDashing || isBossWarning) return; 
+            bossRingAttack(boss);
+        }, CONFIG.bossRingRate);
+        
+        bossTimers.push(t1, t2);
+    }
+
+    function updateBoss() {
+        if (!bossActive) return;
+        const boss = document.getElementById('boss-unit');
+        if (!boss) return;
+
+        if (isBossWarning) return; 
+
+        if (isBossDashing) {
+            let top = parseFloat(boss.style.top);
+            if (bossDashPhase === 1) {
+                top += CONFIG.bossDashSpeed;
+                boss.style.top = top + 'px';
+                if (top > container.offsetHeight) {
+                    boss.style.top = '-250px'; 
+                    bossDashPhase = 2; 
+                }
+            }
+            else if (bossDashPhase === 2) {
+                top += CONFIG.bossMoveSpeed * 2; 
+                boss.style.top = top + 'px';
+                if (top >= 80) {
+                    boss.style.top = '80px';
+                    isBossDashing = false;
+                    boss.classList.remove('dashing');
+                    bossDashPhase = 0;
+                }
+            }
+            return; 
+        }
+
+        let left = parseFloat(boss.style.left);
+        const maxLeft = container.offsetWidth - 200; 
+        
+        if (left <= 0) bossDirection = 1;
+        if (left >= maxLeft) bossDirection = -1;
+        
+        left += CONFIG.bossMoveSpeed * bossDirection;
+        boss.style.left = left + 'px';
+    }
+
+    function bossRingAttack(bossEl) {
+        const count = 10;
+        const speed = 4;
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 / count) * i;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+            spawnPoop(bossEl, vx, vy);
+        }
+    }
+
+    /* --- 8. 碰撞检测 --- */
+    function checkCollisions() {
+        const pRect = player.getBoundingClientRect();
+        const enemies = document.querySelectorAll('.enemy');
+        const bullets = document.querySelectorAll('.bullet-heart');
+        const poops = document.querySelectorAll('.bullet-poop');
+        const boss = document.getElementById('boss-unit');
+
+        bullets.forEach(bullet => {
+            const bRect = bullet.getBoundingClientRect();
+            enemies.forEach(enemy => {
+                if(isCollide(bRect, enemy.getBoundingClientRect())) {
+                    bullet.remove();
+                    if(isTransitioning) return;
+                    let hp = parseInt(enemy.dataset.hp);
+                    hp--;
+                    enemy.dataset.hp = hp;
+                    enemy.classList.add('hit-flash');
+                    setTimeout(() => enemy.classList.remove('hit-flash'), 100);
+                    if(hp <= 0) {
+                        enemy.remove();
+                        addScore();
+                    }
+                }
+            });
+
+            if(bossActive && boss) {
+                if(isBossDashing || isBossWarning) return; 
+                
+                if(isCollide(bRect, boss.getBoundingClientRect())) {
+                    bullet.remove();
+                    let hp = parseInt(boss.dataset.hp);
+                    hp--;
+                    boss.dataset.hp = hp;
+                    boss.classList.add('hit-flash');
+                    setTimeout(() => boss.classList.remove('hit-flash'), 100);
+                    
+                    bossDamageCounter++;
+                    if (bossDamageCounter >= CONFIG.dashThreshold) {
+                        bossDamageCounter = 0;
+                        triggerBossDash(boss);
+                    }
+                    
+                    if(hp <= 0) bossDie();
+                }
+            }
+        });
+
+        if(lives > 0) {
+            poops.forEach(poop => {
+                if(isCollide(pRect, poop.getBoundingClientRect())) {
+                    poop.remove();
+                    if(!isTransitioning) takeDamage();
+                }
+            });
+            enemies.forEach(enemy => {
+                if(isCollide(pRect, enemy.getBoundingClientRect())) {
+                    enemy.remove(); 
+                    if(!isTransitioning) takeDamage();
+                }
+            });
+            
+            if(bossActive && boss) {
+                if(isCollide(pRect, boss.getBoundingClientRect())) {
+                    if(!isTransitioning) takeDamage();
+                }
+            }
+        }
+    }
+    
+    function triggerBossDash(bossEl) {
+        if(isBossDashing || isBossWarning) return; 
+        isBossWarning = true;
+        bossEl.classList.add('warning');
+        setTimeout(() => {
+            isBossWarning = false;
+            bossEl.classList.remove('warning');
+            isBossDashing = true;
+            bossDashPhase = 1; 
+            bossEl.classList.add('dashing'); 
+        }, 600); 
+    }
+
+    function isCollide(r1, r2) {
+        const padding = 20; 
+        return !(
+            r1.right - padding < r2.left + padding || 
+            r1.left + padding > r2.right - padding || 
+            r1.bottom - padding < r2.top + padding || 
+            r1.top + padding > r2.bottom - padding
+        );
+    }
+
+    /* --- 9. 状态管理 --- */
+    function addScore() {
+        score++;
+        scoreEl.innerText = score;
+        if(score === CONFIG.bossTriggerScore && !bossActive && !isTransitioning) {
+            enterBossStage();
+        }
+    }
+
+    function takeDamage() {
+        if (isInvincible) return; 
+
+        lives--;
+        const heartEl = document.getElementById(`h${lives + 1}`);
+        if(heartEl) heartEl.classList.add('lost');
+        
+        isInvincible = true;
+        player.classList.add('invincible');
+        
+        setTimeout(() => {
+            isInvincible = false;
+            player.classList.remove('invincible');
+        }, 1500);
+
+        if(lives <= 0) gameOver();
+    }
+    
+    function bossDie() {
+        bossActive = false;
+        const boss = document.getElementById('boss-unit');
+        
+        bossTimers.forEach(t => clearInterval(t));
+        
+        if (boss) {
+            boss.classList.add('dying');
+            setTimeout(() => {
+                boss.remove();
+                score++;
+                scoreEl.innerText = score;
+                gameWin();
+            }, 2000);
+        } else {
+            score++;
+            scoreEl.innerText = score;
+            gameWin();
+        }
+    }
+
+    /* --- 复活逻辑 --- */
+    function continueFromBoss() {
+        lives = 3;
+        score = CONFIG.bossTriggerScore;
+        scoreEl.innerText = score;
+        
+        for(let i=1; i<=3; i++) {
+            document.getElementById(`h${i}`).classList.remove('lost');
+        }
+        
+        document.querySelectorAll('.bullet-poop').forEach(e => e.remove());
+        document.querySelectorAll('.bullet-heart').forEach(e => e.remove());
+        document.querySelectorAll('.enemy').forEach(e => e.remove());
+        document.querySelectorAll('.boss').forEach(e => e.remove()); 
+        
+        bossActive = true; 
+        isBossDashing = false;
+        isBossWarning = false; 
+        bossDashPhase = 0;
+        bossDamageCounter = 0;
+        isInvincible = false;
+        player.classList.remove('invincible');
+        
+        bossTimers.forEach(t => clearInterval(t));
+        bossTimers = [];
+
+        initBackground();
+        startCountdown();
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        clearInterval(spawnTimer);
+        clearInterval(shootTimer);
+        bossTimers.forEach(t => clearInterval(t));
+        cancelAnimationFrame(frameId);
+        
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('title-text').innerText = "坠机了!";
+        document.getElementById('title-text').style.color = "#e74c3c";
+        
+        // 【核心修复】删除对不存在的 init-btn 的引用
+        
+        document.getElementById('restart-btn').style.display = "block";
+        
+        if (hasReachedBoss) {
+            document.getElementById('continue-btn').style.display = "block";
+        } else {
+            document.getElementById('continue-btn').style.display = "none";
+        }
+    }
+
+    function gameWin() {
+        gameRunning = false;
+        clearInterval(spawnTimer);
+        clearInterval(shootTimer);
+        bossTimers.forEach(t => clearInterval(t));
+        cancelAnimationFrame(frameId);
+        
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('title-text').innerText = "大获全胜!";
+        document.getElementById('title-text').style.color = "#2ecc71";
+        
+        // 【核心修复】删除对不存在的 init-btn 的引用
+        
+        document.getElementById('continue-btn').style.display = "none";
+        document.getElementById('restart-btn').style.display = "none";
+        document.getElementById('final-btn').style.display = "block";
+    }
+
+    /* --- 页面加载即开始 --- */
+    window.onload = function() {
+        startCountdown();
+        
+        const container = document.getElementById('game-container');
+        const bgm = document.getElementById('bgm');
+        const startMusic = () => {
+            bgm.play().catch(e => console.log("Audio play blocked until interaction"));
+            container.removeEventListener('mousedown', startMusic);
+            container.removeEventListener('touchstart', startMusic);
+        };
+        container.addEventListener('mousedown', startMusic);
+        container.addEventListener('touchstart', startMusic);
+    };
+</script>
+</body>
+</html>

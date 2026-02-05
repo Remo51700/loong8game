@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>序章：冒险的开始</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            color: white;
+        }
+
+        #story-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px; /* 保证点击区域够大 */
+        }
+
+        /* 字幕样式 */
+        #subtitle {
+            font-size: 24px;
+            line-height: 1.8;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            min-height: 1.8em; /* 占位防止跳动 */
+            white-space: pre-wrap; /* 保留换行 */
+        }
+
+        /* 光标闪烁效果 */
+        .cursor::after {
+            content: '▋';
+            display: inline-block;
+            margin-left: 5px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* 出发按钮 */
+        .btn {
+            margin-top: 50px;
+            padding: 20px 40px;
+            font-size: 20px;
+            font-family: 'Press Start 2P', cursive;
+            background: #e74c3c;
+            color: white;
+            border: 4px solid #c0392b;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+            display: none; /* 初始隐藏 */
+            animation: fadeIn 1s;
+        }
+        
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.3);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* 点击提示 */
+        #hint {
+            position: absolute;
+            bottom: 20px;
+            font-size: 12px;
+            color: #555;
+            animation: blink 2s infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="story-container">
+    <div id="subtitle" class="cursor"></div>
+    <button id="start-btn" class="btn" onclick="startGame()">出发！</button>
+    <div id="hint">点击屏幕继续</div>
+</div>
+
+<script>
+    // 剧情文本数组
+    const lines = [
+        "龙八大王抓走了\n所有的小龙八",
+        "热馍踏上了\n拯救小龙八的冒险之路"
+    ];
+
+    let lineIndex = 0;      // 当前是第几行
+    let charIndex = 0;      // 当前打到第几个字
+    let isTyping = false;   // 是否正在打字中
+    let timer = null;       // 打字定时器
+    
+    const subtitleEl = document.getElementById('subtitle');
+    const startBtn = document.getElementById('start-btn');
+    const hintEl = document.getElementById('hint');
+    const container = document.body; // 点击整个屏幕都有效
+
+    // 启动第一句
+    window.onload = () => {
+        typeLine(lines[0]);
+    };
+
+    // 全局点击事件
+    container.addEventListener('click', handleClick);
+    container.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // 防止触摸触发两次点击
+        handleClick();
+    });
+
+    function handleClick() {
+        // 如果按钮已经显示了，点击屏幕不再处理剧情逻辑
+        if (startBtn.style.display === 'block') return;
+
+        if (isTyping) {
+            // 情况1：正在打字 -> 瞬间显示全句
+            finishTypingImmediately();
+        } else {
+            // 情况2：打字已完成 -> 进入下一句
+            nextLine();
+        }
+    }
+
+    function typeLine(text) {
+        isTyping = true;
+        subtitleEl.innerText = ""; // 清空上一句
+        charIndex = 0;
+        
+        // 递归打字函数
+        function typeChar() {
+            if (charIndex < text.length) {
+                subtitleEl.innerText += text.charAt(charIndex);
+                charIndex++;
+                // 打字速度：100毫秒一个字
+                timer = setTimeout(typeChar, 100);
+            } else {
+                isTyping = false; // 打完了
+            }
+        }
+        typeChar();
+    }
+
+    function finishTypingImmediately() {
+        clearTimeout(timer);
+        subtitleEl.innerText = lines[lineIndex]; // 直接显示完整当前句
+        isTyping = false;
+    }
+
+    function nextLine() {
+        lineIndex++;
+        
+        if (lineIndex < lines.length) {
+            // 还有下一句，播放下一句
+            typeLine(lines[lineIndex]);
+        } else {
+            // 没台词了，显示按钮
+            showButton();
+        }
+    }
+
+    function showButton() {
+        // 移除光标效果
+        subtitleEl.classList.remove('cursor');
+        // 隐藏点击提示
+        hintEl.style.display = 'none';
+        // 显示按钮
+        startBtn.style.display = 'block';
+    }
+
+    function startGame() {
+        // 跳转到第一关
+        window.location.href = 'stage1.html';
+    }
+</script>
+</body>
+</html>
