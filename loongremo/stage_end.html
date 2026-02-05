@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>结局：幸福生活</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            color: white;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* 每一行内容的通用样式 */
+        .story-line {
+            opacity: 0; /* 初始隐藏 */
+            margin-bottom: 30px;
+            transition: opacity 1.5s ease-in-out; /* 缓慢淡入 */
+            max-width: 90%;
+        }
+
+        /* 文字样式 */
+        p {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #f1c40f; /* 金色文字 */
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        /* 图片样式 */
+        #final-img {
+            width: 80%;
+            border: 4px solid #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            margin-top: 20px;
+        }
+
+        /* 显示状态 */
+        .visible {
+            opacity: 1;
+        }
+
+        /* 点击提示 (仅在最开始闪烁) */
+        #tap-hint {
+            position: absolute;
+            bottom: 50px;
+            font-size: 12px;
+            color: #555;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* 重开按钮 */
+        .btn {
+            margin-top: 40px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-family: 'Press Start 2P', cursive;
+            background: #e74c3c;
+            color: white;
+            border: 4px solid #c0392b;
+            cursor: pointer;
+            opacity: 0; 
+            pointer-events: none; /* 没显示前不能点 */
+            transition: opacity 1s;
+        }
+        .btn.show-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <audio id="bgm" loop src="stage_end/bgm2.mp3"></audio>
+
+    <p id="line-1" class="story-line">恭喜你拯救了<br>所有的小龙八，<br>感化了龙八大王</p>
+    
+    <p id="line-2" class="story-line">于是热馍和龙八大王<br>幸福的生活在了一起！</p>
+    
+    <img id="final-img" class="story-line" src="stage_end/final.jpg" alt="Final Scene">
+
+    <button id="restart-btn" class="btn" onclick="restartGame()">THE END<br><br>再玩一次</button>
+
+    <div id="tap-hint">点击屏幕继续...</div>
+</div>
+
+<script>
+    let step = 0;
+    const bgm = document.getElementById('bgm');
+    const hint = document.getElementById('tap-hint');
+    
+    // 全局点击事件
+    document.body.addEventListener('click', nextStep);
+    document.body.addEventListener('touchstart', nextStep);
+
+    function nextStep(e) {
+        // 防止触摸事件触发两次
+        if (e.type === 'touchstart') {
+            document.body.removeEventListener('click', nextStep);
+        }
+
+        // 步骤逻辑
+        if (step === 0) {
+            // 第1步：播放音乐 + 显示第一行文字
+            bgm.play().catch(() => {});
+            document.getElementById('line-1').classList.add('visible');
+            hint.style.display = 'none'; // 隐藏提示
+            step++;
+        } 
+        else if (step === 1) {
+            // 第2步：显示第二行文字
+            document.getElementById('line-2').classList.add('visible');
+            step++;
+        } 
+        else if (step === 2) {
+            // 第3步：显示图片
+            document.getElementById('final-img').classList.add('visible');
+            step++;
+        }
+        else if (step === 3) {
+            // 第4步：显示重开按钮
+            document.getElementById('restart-btn').classList.add('show-btn');
+            step++;
+        }
+    }
+
+    function restartGame() {
+        // 回到第一关
+        window.location.href = 'stage1.html';
+    }
+</script>
+</body>
+</html>

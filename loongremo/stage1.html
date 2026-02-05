@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>第一关：魔法森林</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- 1. 基础样式 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #2d5a27;
+            background-image: url('stage1_image/bg.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* --- 2. UI 界面 --- */
+        #score-board {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-size: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #fff;
+            z-index: 10;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: white;
+            text-align: center;
+        }
+        
+        #overlay h1 { font-size: 40px; color: #f1c40f; margin-bottom: 20px; }
+        #overlay p { font-size: 16px; line-height: 1.5; color: #ccc; margin: 0 20px; }
+        
+        .btn {
+            margin-top: 30px;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-family: 'Press Start 2P', cursive;
+            background: #e74c3c;
+            color: white;
+            border: 4px solid #c0392b;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #96281b;
+        }
+        .btn:active { transform: translateY(4px); box-shadow: 0 0 0; }
+
+        /* --- 3. 游戏区域 (放大版) --- */
+        #game-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 360px;
+            height: 360px;
+            transform: translate(-50%, -40%);
+            z-index: 5;
+        }
+
+        .hole {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background-image: url('stage1_image/hole.png'); 
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom center;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end; 
+            overflow: visible;
+        }
+
+        .pos-1 { top: 0; left: 0; }
+        .pos-2 { top: 0; right: 0; }
+        .pos-3 { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .pos-4 { bottom: 0; left: 0; }
+        .pos-5 { bottom: 0; right: 0; }
+
+        /* --- 4. 角色与动画 (放大版) --- */
+        .character {
+            width: 100px;  
+            height: 125px; 
+            position: relative;
+            bottom: -80px; 
+            opacity: 0;
+            transition: bottom 0.2s ease-in-out, opacity 0.2s ease-in-out;
+            cursor: pointer;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+        
+        .character img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; 
+            pointer-events: none; 
+            image-rendering: pixelated; 
+        }
+
+        .hole.active .character {
+            bottom: 25px; 
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .feedback {
+            position: absolute;
+            top: -40px; 
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 50px; 
+            font-weight: bold;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(15deg); }
+            50% { transform: rotate(0deg); }
+            75% { transform: rotate(-15deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .shaking { animation: shake 0.3s; }
+
+        @keyframes floatUp {
+            0% { top: -20px; opacity: 1; }
+            100% { top: -60px; opacity: 0; }
+        }
+        .float-anim { animation: floatUp 0.6s forwards; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <audio id="bgm" loop src="stage1_music/bgm.mp3"></audio>
+
+    <div id="score-board">分数: <span id="score">0</span> / 10</div>
+
+    <div id="game-area">
+        <div class="hole pos-1" onclick="hit(1)">
+            <div class="character" id="char-1"></div>
+            <div class="feedback" id="feed-1"></div>
+        </div>
+        <div class="hole pos-2" onclick="hit(2)">
+            <div class="character" id="char-2"></div>
+            <div class="feedback" id="feed-2"></div>
+        </div>
+        <div class="hole pos-3" onclick="hit(3)">
+            <div class="character" id="char-3"></div>
+            <div class="feedback" id="feed-3"></div>
+        </div>
+        <div class="hole pos-4" onclick="hit(4)">
+            <div class="character" id="char-4"></div>
+            <div class="feedback" id="feed-4"></div>
+        </div>
+        <div class="hole pos-5" onclick="hit(5)">
+            <div class="character" id="char-5"></div>
+            <div class="feedback" id="feed-5"></div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="overlay-title">3</h1>
+        <p id="overlay-msg">点击拯救小龙八<br>不要误伤热馍哦</p>
+        <button id="start-btn" class="btn" style="display:none;" onclick="nextLevel()">进入第二关</button>
+    </div>
+</div>
+
+<script>
+    /* --- 游戏配置 --- */
+    let score = 0;
+    const targetScore = 10; 
+    let gameActive = false;
+    let spawnTimer = null;
+    
+    // 素材列表
+    const enemiesA = ['long1.png', 'long2.png', 'long3.png', 'long4.png', 'long5.png', 'long6.png', 'long7.png']; 
+    const enemiesB = ['mo1.png', 'mo2.png', 'mo3.png', 'mo4.png', 'mo5.png']; 
+
+    let holeState = {}; 
+
+    document.addEventListener('DOMContentLoaded', function() {
+        startCountdown();
+        
+        // 【新增】尝试播放音乐，或者在第一次点击屏幕时播放
+        const bgm = document.getElementById('bgm');
+        const playMusic = () => {
+            bgm.play().catch(() => {});
+            document.removeEventListener('click', playMusic);
+            document.removeEventListener('touchstart', playMusic);
+        };
+        document.addEventListener('click', playMusic);
+        document.addEventListener('touchstart', playMusic);
+    });
+
+    function startCountdown() {
+        let count = 3;
+        const title = document.getElementById('overlay-title');
+        
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                title.innerText = count;
+            } else if (count === 0) {
+                title.innerText = "开始!";
+            } else {
+                clearInterval(timer);
+                document.getElementById('overlay').style.display = 'none';
+                startGame();
+            }
+        }, 1000);
+    }
+
+    function startGame() {
+        gameActive = true;
+        spawnTimer = setInterval(spawnEnemy, 1200);
+    }
+
+    function spawnEnemy() {
+        if (!gameActive) return;
+
+        const holeIndex = Math.floor(Math.random() * 5) + 1;
+        const charDiv = document.getElementById(`char-${holeIndex}`);
+        
+        if (holeState[holeIndex]) return; 
+
+        // 70% 概率出加分项
+        const isTypeA = Math.random() > 0.3;
+        const type = isTypeA ? 'a' : 'b';
+        const assets = isTypeA ? enemiesA : enemiesB;
+        const filename = assets[Math.floor(Math.random() * assets.length)];
+
+        charDiv.innerHTML = `<img src="stage1_image/${filename}" alt="character">`;
+        
+        holeState[holeIndex] = type; 
+        
+        const holeDiv = charDiv.parentElement;
+        holeDiv.classList.add('active');
+
+        setTimeout(() => {
+            if (holeState[holeIndex]) { 
+                holeDiv.classList.remove('active');
+                holeState[holeIndex] = null;
+            }
+        }, 1000);
+    }
+
+    function hit(index) {
+        if (!gameActive) return;
+        
+        const type = holeState[index];
+        if (!type) return; 
+
+        const charDiv = document.getElementById(`char-${index}`);
+        const feedDiv = document.getElementById(`feed-${index}`);
+        const holeDiv = charDiv.parentElement;
+
+        holeState[index] = null;
+        holeDiv.classList.remove('active'); 
+
+        if (type === 'a') {
+            score++;
+            charDiv.classList.add('shaking'); 
+            feedDiv.innerText = '⭕';
+            feedDiv.style.color = '#2ecc71';
+            feedDiv.className = 'feedback float-anim'; 
+        } else {
+            score = Math.max(0, score - 1); 
+            charDiv.classList.add('shaking');
+            feedDiv.innerText = '❌';
+            feedDiv.style.color = '#e74c3c';
+            feedDiv.className = 'feedback float-anim';
+        }
+
+        document.getElementById('score').innerText = score;
+
+        setTimeout(() => {
+            charDiv.classList.remove('shaking');
+            feedDiv.className = 'feedback'; 
+        }, 500);
+
+        checkWin();
+    }
+
+    function checkWin() {
+        if (score >= targetScore) {
+            gameActive = false;
+            clearInterval(spawnTimer);
+            showWinScreen();
+        }
+    }
+
+    function showWinScreen() {
+        const overlay = document.getElementById('overlay');
+        const title = document.getElementById('overlay-title');
+        const msg = document.getElementById('overlay-msg');
+        const btn = document.getElementById('start-btn');
+
+        overlay.style.display = 'flex';
+        title.innerText = "关卡完成!";
+        title.style.color = "#2ecc71";
+        msg.innerText = "成功拯救了一些小龙八";
+        btn.style.display = "block";
+    }
+
+    function nextLevel() {
+        // 跳转到第二关
+        window.location.href = "stage2.html";
+    }
+</script>
+</body>
+</html>
